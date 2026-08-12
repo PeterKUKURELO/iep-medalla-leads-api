@@ -1,0 +1,20 @@
+services:
+  mysql-testing:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: medalla_leads_testing
+      MYSQL_USER: medalla_leads_testing
+      MYSQL_PASSWORD: medalla_local_only
+      MYSQL_ROOT_PASSWORD: root_local_only
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - medalla_mysql_testing:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot_local_only"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  medalla_mysql_testing:

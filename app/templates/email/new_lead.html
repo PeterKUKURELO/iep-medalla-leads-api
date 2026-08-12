@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es">
+  <body style="font-family: Arial, sans-serif; color: #17233d">
+    <h1>Nuevo lead #{{ lead.id }}</h1>
+    <p><strong>Formulario:</strong> {{ lead.form_type }}</p>
+    <p><strong>Nombre:</strong> {{ lead.full_name }}</p>
+    <p><strong>Teléfono:</strong> {{ lead.phone }}</p>
+    <p><strong>Correo:</strong> {{ lead.email }}</p>
+    {% if lead.education_level %}
+    <p><strong>Nivel:</strong> {{ lead.education_level }}</p>
+    <p><strong>Grado:</strong> {{ lead.grade }}</p>
+    {% endif %}
+    {% if lead.contact_reason %}
+    <p><strong>Motivo:</strong> {{ lead.contact_reason }}</p>
+    <p><strong>Mensaje:</strong> {{ lead.message }}</p>
+    {% endif %}
+    <p><strong>Origen:</strong> {{ lead.source_url or "No indicado" }}</p>
+  </body>
+</html>
