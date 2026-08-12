@@ -9,7 +9,7 @@ def test_development_cannot_connect_to_production_database():
         Settings(
             app_env="development",
             database_url=None,
-            db_host="195.179.237.102",
+            db_host="srv775.hstgr.io",
             db_name="safe_testing",
         )
 

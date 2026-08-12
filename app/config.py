@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     db_user: str = "medalla_leads_testing"
     db_password: str = ""
     db_use_tls: bool = False
-    db_production_host: str = "195.179.237.102"
+    db_production_host: str = "srv775.hstgr.io"
     db_production_name: str = "u411722909_iepmedalla"
     db_pool_size: int = 2
     db_max_overflow: int = 1

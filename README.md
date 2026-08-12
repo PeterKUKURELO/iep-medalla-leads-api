@@ -4,6 +4,8 @@ API FastAPI para los formularios de Admisión y Contacto de I.E.P. Medalla. Cada
 
 Nombre recomendado del repositorio: **`iep-medalla-leads-api`**.
 
+La guía ejecutable paso a paso para CentOS está en [`docs/deployment-centos/README.md`](docs/deployment-centos/README.md).
+
 ## Características
 
 - FastAPI y validación estricta con Pydantic.
@@ -167,7 +169,7 @@ Variables importantes:
 
 - `APP_ENV=production`
 - `FRONTEND_ORIGINS`: solo URLs HTTPS del sitio público.
-- `ALLOWED_HOSTS`: dominio de la API, sin comodines.
+- `ALLOWED_HOSTS`: dominio de la API y loopback para comprobaciones internas, sin comodines.
 - `DB_USE_TLS=true`
 - `MAIL_PASSWORD`: contraseña de aplicación de Google, no la contraseña normal.
 - `DOCS_ENABLED=false`
