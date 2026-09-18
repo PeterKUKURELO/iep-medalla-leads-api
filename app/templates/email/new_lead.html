@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="es">
   <body style="font-family: Arial, sans-serif; color: #17233d">
-    <h1>Nuevo lead #{{ lead.id }}</h1>
+    <h1>Nuevo lead de {{ brand.display_name }} #{{ lead.id }}</h1>
     <p><strong>Formulario:</strong> {{ lead.form_type }}</p>
     <p><strong>Nombre:</strong> {{ lead.full_name }}</p>
     <p><strong>Teléfono:</strong> {{ lead.phone }}</p>
     <p><strong>Correo:</strong> {{ lead.email }}</p>
+    {% if lead.organization_name %}<p><strong>Organización:</strong> {{ lead.organization_name }}</p>{% endif %}
+    {% if lead.job_title %}<p><strong>Cargo:</strong> {{ lead.job_title }}</p>{% endif %}
     {% if lead.education_level %}
     <p><strong>Nivel:</strong> {{ lead.education_level }}</p>
     <p><strong>Grado:</strong> {{ lead.grade }}</p>

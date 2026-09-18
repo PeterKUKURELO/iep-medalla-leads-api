@@ -6,16 +6,23 @@ from typing import Literal
 from sqlalchemy.orm import Session
 
 from app.models.lead import Lead
-from app.schemas.lead import LeadCreate
+from app.domain.leads import CreateLeadCommand
 
 EmailKind = Literal["admin", "user"]
 EmailStatus = Literal["pending", "sent", "failed"]
 
 
-def create_lead(db: Session, payload: LeadCreate) -> Lead:
-    lead = Lead(**payload.persistence_data())
+def add_lead(db: Session, command: CreateLeadCommand) -> Lead:
+    lead = Lead(**command.as_persistence_data())
+    db.add(lead)
+    db.flush()
+    return lead
+
+
+def create_lead(db: Session, command: CreateLeadCommand) -> Lead:
+    """Compatibility wrapper. New services should own the transaction."""
+    lead = add_lead(db, command)
     try:
-        db.add(lead)
         db.commit()
         db.refresh(lead)
     except Exception:

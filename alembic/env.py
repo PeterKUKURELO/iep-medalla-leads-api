@@ -4,7 +4,7 @@ from alembic import context
 
 from app.config import get_settings
 from app.database import Base, engine
-from app.models import Lead  # noqa: F401
+from app.models import Complaint, Lead, LeadNotification  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().sqlalchemy_url.replace("%", "%%"))
