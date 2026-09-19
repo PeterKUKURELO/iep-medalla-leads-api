@@ -1,27 +1,43 @@
 from __future__ import annotations
 
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 from urllib.parse import quote_plus
 
-from pydantic import Field, model_validator
+from pydantic import Field, PrivateAttr, SecretStr, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+class SMTPProfile(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore", hide_input_in_errors=True)
+
+    mail_host: str = Field(min_length=1)
+    mail_port: int = Field(default=587, gt=0, le=65535)
+    mail_username: str = Field(min_length=1)
+    mail_password: SecretStr
+    mail_from: str = Field(min_length=1)
+    mail_from_name: str = ""
+    mail_use_tls: bool = True
+    mail_timeout_seconds: float = Field(default=10, gt=0)
+
+
 class Settings(BaseSettings):
+    _smtp_profiles: dict[str, SMTPProfile] = PrivateAttr(default_factory=dict)
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / f".env.{os.getenv('APP_ENV', 'development')}",
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
+        hide_input_in_errors=True,
     )
 
     app_env: Literal["development", "test", "production"] = "development"
-    app_name: str = "Medalla Leads API"
+    app_name: str = "Belsitec Leads API"
     frontend_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8443"])
     allowed_hosts: list[str] = Field(default_factory=lambda: ["localhost", "127.0.0.1", "testserver"])
     docs_enabled: bool = True
@@ -35,9 +51,10 @@ class Settings(BaseSettings):
     db_use_tls: bool = False
     db_production_host: str = "srv775.hstgr.io"
     db_production_name: str = "u411722909_iepmedalla"
-    db_pool_size: int = 2
-    db_max_overflow: int = 1
-    db_pool_recycle: int = 300
+    db_pool_size: int = Field(default=2, gt=0)
+    db_max_overflow: int = Field(default=1, ge=0)
+    db_pool_recycle: int = Field(default=300, gt=0)
+    db_ssl_ca: Path | None = None
 
     mail_host: str = "sandbox.smtp.mailtrap.io"
     mail_port: int = 587
@@ -49,11 +66,12 @@ class Settings(BaseSettings):
     mail_reply_to: str = "info@example.com"
     mail_use_tls: bool = True
     mail_enabled: bool = False
-    mail_timeout_seconds: float = 10.0
+    mail_timeout_seconds: float = Field(default=10.0, gt=0)
 
-    rate_limit_requests: int = 5
-    rate_limit_window_seconds: int = 60
-    max_body_bytes: int = 16_384
+    rate_limit_requests: int = Field(default=5, gt=0)
+    rate_limit_window_seconds: int = Field(default=60, gt=0)
+    max_body_bytes: int = Field(default=16_384, gt=0)
+    brand_registry_path: Path = BASE_DIR / "app" / "config" / "brands.json"
 
     @model_validator(mode="after")
     def reject_dangerous_environment(self) -> "Settings":
@@ -92,18 +110,6 @@ class Settings(BaseSettings):
                 raise ValueError("Los origenes del frontend deben usar HTTPS en produccion")
             if not self.allowed_hosts or "*" in self.allowed_hosts:
                 raise ValueError("ALLOWED_HOSTS debe restringirse en produccion")
-            if self.mail_enabled:
-                required_mail = {
-                    "MAIL_HOST": self.mail_host,
-                    "MAIL_USERNAME": self.mail_username,
-                    "MAIL_PASSWORD": self.mail_password,
-                    "MAIL_FROM": self.mail_from,
-                    "MAIL_ADMIN_TO": self.mail_admin_to,
-                    "MAIL_REPLY_TO": self.mail_reply_to,
-                }
-                missing_mail = [name for name, value in required_mail.items() if not str(value).strip()]
-                if missing_mail:
-                    raise ValueError(f"Configuracion SMTP incompleta: {', '.join(missing_mail)}")
         return self
 
     @property
@@ -114,6 +120,36 @@ class Settings(BaseSettings):
         password = quote_plus(self.db_password)
         database = quote_plus(self.db_name)
         return f"mysql+pymysql://{user}:{password}@{self.db_host}:{self.db_port}/{database}?charset=utf8mb4"
+
+    def resolve_email_profile(self, name: str) -> SMTPProfile:
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
+            raise ValueError("Nombre de perfil SMTP invalido")
+        if name in self._smtp_profiles:
+            return self._smtp_profiles[name]
+        try:
+            if name == "default":
+                profile = SMTPProfile(
+                    _env_file=None,
+                    **{key: getattr(self, key) for key in SMTPProfile.model_fields},
+                )
+            else:
+                profile = SMTPProfile(
+                    _env_prefix=f"{name.upper()}_",
+                    _env_file=BASE_DIR / f".env.{self.app_env}",
+                    _env_file_encoding="utf-8",
+                )
+        except ValidationError:
+            raise ValueError(f"Configuracion SMTP incompleta o invalida para perfil {name}") from None
+        if not profile.mail_password.get_secret_value().strip():
+            raise ValueError(f"Password SMTP vacio para perfil {name}")
+        if any(not getattr(profile, field).strip() for field in ("mail_host", "mail_username", "mail_from")):
+            raise ValueError(f"Configuracion SMTP incompleta para perfil {name}")
+        if self.app_env == "production" and not profile.mail_use_tls:
+            raise ValueError(f"SMTP debe usar TLS en produccion: {name}")
+        if self.app_env != "production" and not profile.mail_from.lower().endswith("@example.com"):
+            raise ValueError("En desarrollo el remitente SMTP debe usar example.com")
+        self._smtp_profiles[name] = profile
+        return profile
 
 
 @lru_cache

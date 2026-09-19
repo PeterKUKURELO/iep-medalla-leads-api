@@ -33,4 +33,4 @@ addopts = "-q"
 include = ["app*"]
 
 [tool.setuptools.package-data]
-app = ["templates/email/*.html"]
+app = ["templates/email/*.html", "config/*.json"]

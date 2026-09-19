@@ -1,0 +1,18 @@
+[Unit]
+Description=Belsitec Leads notification worker
+After=network-online.target iep-medalla-leads-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=medalla-api
+Group=medalla-api
+WorkingDirectory=/opt/iep-medalla-leads-api
+Environment=APP_ENV=production
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/iep-medalla-leads-api/.venv/bin/python -m app.retry_emails --limit 50
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+UMask=0027

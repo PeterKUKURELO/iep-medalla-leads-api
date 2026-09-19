@@ -1,10 +1,12 @@
-# I.E.P. Medalla Leads API
+# Belsitec Leads API (repositorio legacy `iep-medalla-leads-api`)
 
-API FastAPI para los formularios de Admisión y Contacto de I.E.P. Medalla. Cada solicitud se guarda primero en MySQL y luego intenta enviar, en segundo plano, una notificación administrativa y una confirmación al usuario.
+API FastAPI centralizada para captar leads de IEP Medalla, Belsitec y miedu.pe. `POST /api/v1/leads` conserva el contrato Medalla; `POST /api/v2/leads` usa contratos explícitos por marca y formulario. Los correos se persisten como trabajos durables antes de responder.
 
-Nombre recomendado del repositorio: **`iep-medalla-leads-api`**.
+El cambio físico del repositorio queda fuera de esta primera homologación.
 
 La guía ejecutable paso a paso para CentOS está en [`docs/deployment-centos/README.md`](docs/deployment-centos/README.md).
+
+El diagnóstico y la propuesta de evolución hacia una API compartida por IEP Medalla, Belsitec y miedu.pe están en [`docs/multi-brand-architecture.md`](docs/multi-brand-architecture.md). El documento distingue el comportamiento actual de los cambios propuestos.
 
 ## Características
 
@@ -12,6 +14,10 @@ La guía ejecutable paso a paso para CentOS está en [`docs/deployment-centos/RE
 - MySQL mediante SQLAlchemy y PyMySQL.
 - Migraciones con Alembic.
 - Correos HTML mediante SMTP con STARTTLS.
+- Registro central de marcas validado al iniciar.
+- Cola durable MySQL para notificaciones, con lease, retry y recuperación.
+- Libro de Reclamaciones separado de leads.
+- `X-Request-ID` y logs JSON con campos seguros.
 - CORS restringido al frontend configurado.
 - Host header restringido en producción.
 - Límite de cinco solicitudes por minuto e IP.
@@ -155,6 +161,35 @@ Códigos relevantes:
 - `500`: no fue posible guardar el lead.
 
 El campo oculto `companyWebsite` es un honeypot y debe permanecer vacío. No existen endpoints públicos para listar, editar o eliminar leads.
+
+### `POST /api/v2/leads`
+
+Todos los payloads exigen `brand`, `formType`, `privacyAccepted` y campos específicos dentro de `data`. Ejemplo miedu.pe:
+
+```json
+{
+  "brand": "miedu-pe",
+  "formType": "demo_request",
+  "sourceKey": "hero_demo",
+  "fullName": "María García",
+  "email": "direccion@example.com",
+  "phoneCountry": "PE",
+  "phone": "999999999",
+  "organizationName": "Colegio Ejemplo",
+  "jobTitle": "Directora",
+  "privacyAccepted": true,
+  "sourceUrl": "/",
+  "data": {"studentRange": "201–500", "primaryNeed": "Admisión"}
+}
+```
+
+Formularios implementados: `iep-medalla/admission`, `iep-medalla/contact`, `belsitec/meeting_request`, `miedu-pe/demo_request` y `miedu-pe/sales_contact`. Belsitec y miedu parten deshabilitadas hasta reemplazar sus valores placeholder y aprobarlos. También se aceptan los nombres actuales documentados de los frontends (`nombre`, `cargo`, `institucion`, `telefono`; `name`, `school`, `students`, `role`, `need`, `privacy`, `city`, `schedule`) y se normalizan antes del dominio.
+
+Los campos `classification`, `assignedTo`, `nextFollowUpAt`, destinatarios, remitente, perfil SMTP, templates y estados nunca forman parte del contrato público.
+
+### `POST /api/v1/complaints`
+
+Registra Libro de Reclamaciones en `consumer_complaints`; nunca crea un lead. El contrato OpenAPI incluye documento, domicilio, bien/servicio, detalle y pedido. Debe validarse con el responsable legal antes de activar el formulario público.
 
 ## Variables de producción
 
@@ -365,9 +400,31 @@ sudo journalctl -u iep-medalla-leads-api -f
 sudo -u medalla-api env APP_ENV=production .venv/bin/python -m app.retry_emails --limit 50
 ```
 
-Un fallo SMTP no elimina el lead. Los estados de correo quedan como `failed` y pueden reintentarse posteriormente.
+Instala además `deploy/systemd/belsitec-leads-notification-worker.{service,timer}` y habilita el timer. Un fallo SMTP no elimina el lead. Los jobs quedan en `lead_notifications`, usan hasta cinco intentos con backoff y conservan las columnas legacy como proyección temporal. SMTP no permite garantizar exactly-once: una caída después de enviar y antes del commit puede causar un duplicado.
+
+Documentación operativa y de integración:
+
+- [`docs/SERVICE_OVERVIEW.md`](docs/SERVICE_OVERVIEW.md)
+- [`docs/LEADS_API_HOMOLOGATION.md`](docs/LEADS_API_HOMOLOGATION.md)
+- [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md)
+- [`docs/SECURITY.md`](docs/SECURITY.md)
 
 ## Seguridad
+
+### Cuentas SMTP independientes
+
+Para guardar leads de una marca sin enviar correos, agregar
+`"notifications_enabled": false` a su entrada del Brand Registry.
+El valor por defecto es `true`; miedu se configura en `false`.
+Mantener `MAIL_ENABLED=true` si otras marcas deben enviar.
+Los jobs quedan en `disabled` y no se reactivan automáticamente.
+
+`email_profile` en el Brand Registry selecciona `default` (`MAIL_*`) o un perfil
+propio, por ejemplo `medalla` (`MEDALLA_MAIL_*`), `belsitec`
+(`BELSITEC_MAIL_*`) y `miedu` (`MIEDU_MAIL_*`). Las contraseñas solo van en
+`.env.production` o en el entorno del proceso. Consultar los bloques de
+`.env.production.example` y [perfiles SMTP](docs/SECURITY.md#perfiles-smtp-por-marca).
+Los perfiles incompletos fallan al iniciar; nunca usan otra cuenta como fallback.
 
 - La API nunca debe exponerse directamente por el puerto 8000.
 - MySQL y SMTP solo se configuran en `.env.production`.

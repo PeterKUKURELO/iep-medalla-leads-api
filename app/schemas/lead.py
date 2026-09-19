@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
+from app.domain.leads import CreateLeadCommand
+
 GRADES_BY_LEVEL = {
     "Inicial": {"3 años", "4 años", "5 años"},
     "Primaria": {f"{number}° grado" for number in range(1, 7)},
@@ -67,6 +69,33 @@ class LeadCreate(BaseModel):
 
     def persistence_data(self) -> dict[str, object]:
         return self.model_dump(exclude={"company_website"})
+
+    def to_command(self) -> CreateLeadCommand:
+        return CreateLeadCommand(
+            brand_key="iep-medalla",
+            form_type=self.form_type,
+            full_name=self.full_name,
+            email=str(self.email),
+            phone=self.phone,
+            privacy_accepted=self.privacy_accepted,
+            education_level=self.education_level,
+            grade=self.grade,
+            contact_reason=self.contact_reason,
+            message=self.message,
+            source_url=self.source_url,
+            utm_source=self.utm_source,
+            utm_medium=self.utm_medium,
+            utm_campaign=self.utm_campaign,
+            form_data={
+                key: value
+                for key, value in {
+                    "educationLevel": self.education_level,
+                    "grade": self.grade,
+                    "contactReason": self.contact_reason,
+                }.items()
+                if value is not None
+            },
+        )
 
 
 class LeadCreated(BaseModel):
