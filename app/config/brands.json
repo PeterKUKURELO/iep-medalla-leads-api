@@ -9,7 +9,7 @@
         "https://iepmedalla.com",
         "https://www.iepmedalla.com"
       ],
-      "email_profile": "default",
+      "email_profile": "medalla",
       "admin_recipients": ["info@iepmedalla.com"],
       "reply_to": "info@iepmedalla.com",
       "templates": {
@@ -25,7 +25,7 @@
       "enabled": false,
       "allowed_forms": ["meeting_request"],
       "allowed_origins": ["http://localhost:8443"],
-      "email_profile": "default",
+      "email_profile": "belsitec",
       "admin_recipients": ["leads-belsitec@example.com"],
       "reply_to": "info@example.com",
       "templates": {"admin": "new_lead.html", "user": "lead_confirmation.html"},
@@ -41,7 +41,7 @@
         "https://miedu.pe",
         "https://www.miedu.pe"
       ],
-      "email_profile": "default",
+      "email_profile": "miedu",
       "admin_recipients": ["contacto@miedu.pe"],
       "reply_to": "contacto@miedu.pe",
       "templates": {
