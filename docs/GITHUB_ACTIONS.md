@@ -2,8 +2,8 @@
 
 El repositorio contiene dos workflows:
 
-- `CI`: se ejecuta en pushes a `main` y `cambios-Pet`, y en pull requests hacia
-  `main`. Instala Python 3.11, valida dependencias, compila la aplicación y exige
+- `CI`: se ejecuta en pushes a `main` y en pull requests hacia `main`. Instala
+  Python 3.11, valida dependencias, compila la aplicación y exige
   que las pruebas mantengan al menos 80 % de cobertura.
 - `Deploy production`: se ejecuta manualmente y solo desde `main`. Repite las
   pruebas, solicita la aprobación del entorno `production`, despliega exactamente
