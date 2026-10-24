@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -10,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 def _alembic(database: Path, revision: str, command: str = "upgrade") -> None:
     environment = {**os.environ, "APP_ENV": "test", "DATABASE_URL": f"sqlite:///{database}"}
     result = subprocess.run(
-        [str(ROOT / ".venv/bin/alembic"), command, revision],
+        [sys.executable, "-m", "alembic", command, revision],
         cwd=ROOT,
         env=environment,
         capture_output=True,
