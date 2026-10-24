@@ -61,7 +61,13 @@ El entorno del proceso tiene prioridad sobre el archivo.
 el worker validan los perfiles de marcas habilitadas antes de aceptar tráfico o
 reclamar trabajos. Los perfiles se almacenan en memoria: reiniciar la API y cualquier
 worker persistente al rotar credenciales. El worker systemd oneshot los relee en su
-próxima ejecución. En producción todos los perfiles deben usar STARTTLS.
+próxima ejecución. En producción todos los perfiles deben usar STARTTLS. El comando
+`APP_ENV=production .venv/bin/python -m app.check_smtp --profile <perfil>` valida
+resolución/conectividad, certificado TLS y autenticación sin enviar mensajes ni
+mostrar secretos. Para la cuenta Titan de MIEDU se usa `smtp.titan.email` en el
+puerto 587. El puerto 465 corresponde a TLS implícito y no debe combinarse con esta
+opción STARTTLS. Titan debe permitir aplicaciones de terceros y, si la cuenta tiene
+2FA, debe configurarse una contraseña de aplicación.
 
 Para activar cuentas independientes, copiar los bloques de
 `.env.production.example` al archivo protegido del servidor, completar los secretos

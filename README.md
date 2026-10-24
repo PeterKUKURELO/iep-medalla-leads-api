@@ -408,6 +408,7 @@ Documentación operativa y de integración:
 - [`docs/LEADS_API_HOMOLOGATION.md`](docs/LEADS_API_HOMOLOGATION.md)
 - [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md)
 - [`docs/SECURITY.md`](docs/SECURITY.md)
+- [`docs/GITHUB_ACTIONS.md`](docs/GITHUB_ACTIONS.md)
 
 ## Seguridad
 
@@ -425,6 +426,17 @@ propio, por ejemplo `medalla` (`MEDALLA_MAIL_*`), `belsitec`
 `.env.production` o en el entorno del proceso. Consultar los bloques de
 `.env.production.example` y [perfiles SMTP](docs/SECURITY.md#perfiles-smtp-por-marca).
 Los perfiles incompletos fallan al iniciar; nunca usan otra cuenta como fallback.
+Antes de habilitar una marca, la conexión y autenticación pueden comprobarse sin
+enviar correo:
+
+```bash
+APP_ENV=production .venv/bin/python -m app.check_smtp --profile miedu
+```
+
+Para la cuenta MIEDU alojada en Titan Email usar `smtp.titan.email`, puerto `587`
+y STARTTLS. El usuario es la dirección completa del buzón. Antes de validar, debe
+estar habilitado el acceso de aplicaciones de terceros en Titan; con 2FA se utiliza
+una contraseña de aplicación.
 
 - La API nunca debe exponerse directamente por el puerto 8000.
 - MySQL y SMTP solo se configuran en `.env.production`.

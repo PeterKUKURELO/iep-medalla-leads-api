@@ -50,7 +50,7 @@ def test_brand_selects_own_smtp_credentials(monkeypatch, name, brand_key, kind):
     )
     registry = BrandRegistry(BrandRegistryFile(brands=[brand]))
     monkeypatch.setattr("app.services.email.get_brand_registry", lambda: registry)
-    monkeypatch.setattr("app.services.email.smtplib.SMTP", FakeSMTP)
+    monkeypatch.setattr("app.services.smtp.smtplib.SMTP", FakeSMTP)
     settings = Settings(app_env="test", database_url="sqlite://", mail_enabled=True,
                         mail_username="legacy", mail_password="legacy-secret")
     lead = Lead(id=1, brand_key=brand_key, form_type="contact", full_name="Test",
@@ -133,8 +133,15 @@ def test_profile_reads_dotenv_and_environment_takes_priority(monkeypatch, tmp_pa
 
 
 def test_medalla_default_keeps_legacy_recipient_and_reply_to(monkeypatch):
-    from app.brands import get_brand_registry
-    monkeypatch.setattr("app.services.email.get_brand_registry", get_brand_registry)
+    brand = BrandConfig(
+        key="iep-medalla", display_name="I.E.P. Medalla", enabled=True,
+        allowed_forms={"contact"}, allowed_origins={"https://example.com"},
+        email_profile="default", admin_recipients=["ignored@example.com"],
+        reply_to="ignored@example.com",
+        templates={"admin": "new_lead.html", "user": "lead_confirmation.html"},
+    )
+    registry = BrandRegistry(BrandRegistryFile(brands=[brand]))
+    monkeypatch.setattr("app.services.email.get_brand_registry", lambda: registry)
     settings = Settings(app_env="test", database_url="sqlite://",
                         mail_admin_to="legacy@example.com", mail_reply_to="legacy-reply@example.com")
     service = EmailService(settings)
@@ -209,7 +216,7 @@ def test_smtp_starttls_uses_verified_default_context(monkeypatch):
         def send_message(self, message):
             calls["to"] = message["To"]
 
-    monkeypatch.setattr("app.services.email.smtplib.SMTP", FakeSMTP)
+    monkeypatch.setattr("app.services.smtp.smtplib.SMTP", FakeSMTP)
     settings = Settings(
         app_env="test",
         database_url="sqlite://",

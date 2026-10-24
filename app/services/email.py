@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import smtplib
-import ssl
 from email.message import EmailMessage
 from email.utils import formataddr
 from pathlib import Path
@@ -11,6 +9,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from app.config import Settings
 from app.brands import get_brand_registry
 from app.models.lead import Lead
+from app.services.smtp import SMTPTransport
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "email"
 
@@ -66,17 +65,7 @@ class EmailService:
         message.set_content(text)
         message.add_alternative(html, subtype="html")
 
-        with smtplib.SMTP(
-            profile.mail_host,
-            profile.mail_port,
-            timeout=profile.mail_timeout_seconds,
-        ) as smtp:
-            smtp.ehlo()
-            if profile.mail_use_tls:
-                smtp.starttls(context=ssl.create_default_context())
-                smtp.ehlo()
-            smtp.login(profile.mail_username, profile.mail_password.get_secret_value())
-            smtp.send_message(message)
+        SMTPTransport(profile).send(message)
 
     @staticmethod
     def _admin_text(lead: Lead) -> str:
