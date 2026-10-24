@@ -1,0 +1,91 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify main
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_ENV: test
+      DATABASE_URL: sqlite:///./medalla_test.sqlite3
+      MAIL_ENABLED: "false"
+      PYTHONDONTWRITEBYTECODE: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install and test
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --editable '.[dev]'
+          python -m pip check
+          python -m pytest --cov=app --cov-report=term --cov-fail-under=80
+
+  deploy:
+    name: Deploy exact commit
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://api.iepmedalla.com/health
+    env:
+      DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+      DEPLOY_PORT: ${{ secrets.PRODUCTION_SSH_PORT }}
+      DEPLOY_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+      DEPLOY_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+      DEPLOY_PATH: /opt/iep-medalla-leads-api
+
+    steps:
+      - name: Checkout deployment script
+        uses: actions/checkout@v7.0.1
+
+      - name: Prepare verified SSH connection
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          : "${DEPLOY_HOST:?Missing PRODUCTION_SSH_HOST}"
+          : "${DEPLOY_USER:?Missing PRODUCTION_SSH_USER}"
+          : "${DEPLOY_PRIVATE_KEY:?Missing PRODUCTION_SSH_PRIVATE_KEY}"
+          : "${DEPLOY_KNOWN_HOSTS:?Missing PRODUCTION_SSH_KNOWN_HOSTS}"
+          DEPLOY_PORT="${DEPLOY_PORT:-22}"
+          echo "DEPLOY_PORT=${DEPLOY_PORT}" >> "$GITHUB_ENV"
+          install -d -m 700 "$RUNNER_TEMP/deploy-ssh"
+          printf '%s\n' "$DEPLOY_PRIVATE_KEY" > "$RUNNER_TEMP/deploy-ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/deploy-ssh/known_hosts"
+          chmod 600 "$RUNNER_TEMP/deploy-ssh/id_ed25519" "$RUNNER_TEMP/deploy-ssh/known_hosts"
+
+      - name: Deploy and verify health
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh \
+            -i "$RUNNER_TEMP/deploy-ssh/id_ed25519" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o "UserKnownHostsFile=$RUNNER_TEMP/deploy-ssh/known_hosts" \
+            -p "$DEPLOY_PORT" \
+            -- "$DEPLOY_USER@$DEPLOY_HOST" \
+            bash -s -- "$DEPLOY_PATH" "$GITHUB_SHA" \
+            < deploy/scripts/deploy-production.sh
